@@ -25,9 +25,8 @@ public class SearchController {
     private final MessageUtil messageUtil;
 
     /**
-     * @param request 검색 조건 (인원, 체크인/아웃, 지역, 정렬)
-     * @return 검색된 숙소 리스트
-     * @Author danjae
+     * 검색 조건 (인원, 체크인/아웃, 지역, 정렬)
+     *  검색된 숙소 리스트
      */
     @Operation(summary = "숙소 검색", description = "조건에 따른 예약 가능한 숙소 리스트 조회 ")
     @GetMapping("/search/accommodations")
@@ -36,7 +35,7 @@ public class SearchController {
 
         List<AccomListResponse> accomListResponse = searchService.searchAccommodations(request);
 
-        log.info("API 응답 준비 완료 - 조회된 숙소 개수: {}", accomListResponse.size());
+        log.info("조회된 숙소 개수: {}", accomListResponse.size());
 
         String code = SuccessCode.SUCCESS.name();
         String message = messageUtil.getMessage(SuccessCode.SUCCESS.getMessageKey());
