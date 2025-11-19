@@ -40,7 +40,7 @@ public class PaymentWebhookController {
         log.info("Payload: {}", payload);
 
         try {
-            // 1. payload JSON -> DTO
+            // payload JSON -> DTO
             TossVirtualAccountWebhookRequest webhookRequest = objectMapper.readValue(
                     payload, TossVirtualAccountWebhookRequest.class);
 
@@ -56,7 +56,7 @@ public class PaymentWebhookController {
             String transactionKey = webhookRequest.getTransactionKey();
             log.info("orderId={}, transactionKey={}", orderId, transactionKey);
 
-            // 2. 예약 조회
+            // 예약 조회 하기
             Booking booking = bookingMapper.findBookingByBookingNum(orderId);
             if (booking == null) {
                 log.warn("예약을 찾을 수 없음: orderId={}", orderId);
@@ -64,7 +64,7 @@ public class PaymentWebhookController {
             }
             Long bookingId = booking.getBookingId();
 
-            // 3. 결제 조회
+            // 결제 조회
             Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
             if (payment == null) {
                 log.warn("결제를 찾을 수 없음: bookingId={}", bookingId);
@@ -73,13 +73,13 @@ public class PaymentWebhookController {
             Long paymentId = payment.getPaymentId();
             String currentStatus = payment.getStatus();
 
-            // 4. 이미 처리된 결제인지 확인 (멱등성)
+            // 이미 처리된 결제인지 확인 (멱등성)
             if (PaymentStatus.PAY_PAID.getCode().equals(currentStatus)) {
                 log.info("이미 처리된 가상계좌 입금: paymentId={}", paymentId);
                 return ResponseEntity.ok("Already processed");
             }
 
-            // 5. 결제 승인: PAYMENT(PAID) + RESERVATION(CONFIRMED)
+            //  결제 승인: PAYMENT(PAID) + RESERVATION(CONFIRMED)
             paymentMapper.updateVirtualAccountDeposit(paymentId,
                     PaymentStatus.PAY_PAID.getCode(),
                     OffsetDateTime.now());
@@ -87,7 +87,7 @@ public class PaymentWebhookController {
             bookingMapper.updateBookingStatus(bookingId, ReservationStatus.RES_CONFIRMED.getCode());
             log.info("v2 가상계좌 웹훅 처리 완료: paymentId={}, bookingId={}", paymentId, bookingId);
 
-            // 6. 결제 완료 이벤트 발행
+            // 결제 완료 이벤트 발행
             PaymentConfirmEvent event = new PaymentConfirmEvent(
                     paymentId,
                     bookingId,
