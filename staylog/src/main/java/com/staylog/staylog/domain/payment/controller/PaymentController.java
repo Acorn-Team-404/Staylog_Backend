@@ -32,9 +32,6 @@ public class PaymentController {
     /**
      * 결제 준비
      * POST /v1/payments/prepare
-     *
-     * @param request 결제 준비 요청 (bookingId, method, amount)
-     * @return 결제 준비 정보 (orderId, clientKey 등 - 프론트엔드에서 Toss SDK 초기화에 필요함)
      */
     @Operation(summary = "결제 준비", description = "예약에 대한 결제를 준비합니다. " +
             "프론트엔드에서 Toss SDK(결제 모듈)를 초기화하는 데 필요한 정보를 반환함.")
@@ -55,9 +52,6 @@ public class PaymentController {
     /**
      * 결제 승인
      * POST /v1/payments/confirm
-     *
-     * @param request 결제 승인 요청 (paymentKey, orderId, amount)
-     * @return 결제 결과 (paymentStatus, reservationStatus 포함)
      */
     @Operation(summary = "결제 승인", description = "Toss 결제를 승인합니다. " +
             "성공 시 예약이 확정되며, 실패 시 자동으로 취소됩니다.")
