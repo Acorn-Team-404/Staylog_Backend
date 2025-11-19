@@ -22,7 +22,7 @@
         -->
     </resultMap>
 
-    <!-- 1단계: 예약 가능한 숙소 ID 추출 -->
+    <!-- 예약 가능한 숙소 ID 추출 -->
     <select id="getAvailableAccomIds" resultType="long">
         SELECT DISTINCT R.ACCOMMODATION_ID
         FROM ROOM R
@@ -42,7 +42,7 @@
         </if>
     </select>
 
-    <!-- 2단계: 숙소 기본 정보 + 객실 집계 (예약 수 제외) -->
+    <!-- 숙소 기본 정보 + 객실 집계 (예약 수 제외) -->
     <select id="getAccomListBasic" resultMap="AccomWithImagesMap">
         SELECT * FROM (
             SELECT
@@ -101,7 +101,7 @@
         WHERE RN BETWEEN 1 AND 20
     </select>
 
-    <!-- 3단계: 예약 수만 조회 (popular 정렬 시만 호출) -->
+    <!--  예약 수만 조회 (popular 정렬 시만 호출) -->
 
     <select id="getReservationCounts" resultType="map">
         SELECT
