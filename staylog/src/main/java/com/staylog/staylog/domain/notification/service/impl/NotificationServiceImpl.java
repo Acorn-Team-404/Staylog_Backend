@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.staylog.staylog.domain.image.dto.ImageDto;
 import com.staylog.staylog.domain.image.mapper.ImageMapper;
-import com.staylog.staylog.domain.notification.dto.request.NotificationRequest;
-import com.staylog.staylog.domain.notification.dto.request.NotificationSelectRequest;
-import com.staylog.staylog.domain.notification.dto.request.ReadAllRequest;
-import com.staylog.staylog.domain.notification.dto.request.ReadRequest;
+import com.staylog.staylog.domain.notification.dto.request.*;
 import com.staylog.staylog.domain.notification.dto.response.*;
 import com.staylog.staylog.domain.notification.mapper.NotificationMapper;
 import com.staylog.staylog.domain.notification.service.NotificationService;
@@ -121,21 +118,28 @@ public class NotificationServiceImpl implements NotificationService {
     /**
      * 유저 한명의 알림 리스트 조회
      *
-     * @param userId 유저 PK
+     * @param notificationLimitRequest 부가정보 (userId, last 값, limit)
      * @return List<NotificationResponse>
      * @author 이준혁
      */
     @Override
-    public List<NotificationResponse> getNotificationList(long userId) {
+    public List<NotificationResponse> getNotificationList(NotificationLimitRequest notificationLimitRequest) {
+
+        // limit 설정을 안했을 시 방어 로직
+        if(notificationLimitRequest.getLimit() == null) {
+            // 기본값 limit 설정
+            int defaultLimit = 15;
+            notificationLimitRequest.setLimit(defaultLimit);
+        }
 
         // 유저의 알림 리스트 조회
-        List<NotificationSelectRequest> notiListFromDb = notificationMapper.findNotificationsByUserId(userId);
+        List<NotificationSelectRequest> notiListFromDb = notificationMapper.findNotificationsByUserId(notificationLimitRequest);
 
         if (notiListFromDb == null || notiListFromDb.isEmpty()) {
-            log.warn("알림 데이터 조회 실패: 알림이 없거나, 알림 정보를 찾을 수 없습니다. - userId={}", userId);
+            log.warn("알림 데이터 조회 실패: 알림이 없거나, 알림 정보를 찾을 수 없습니다. - userId={}", notificationLimitRequest.getUserId());
             return Collections.emptyList(); // 프론트의 catch를 실행시키지 않도록 throw 대신 빈 List를 반환
         }
-        log.info("알림 데이터 조회 완료. userId: {}, length: {}", userId, notiListFromDb.size());
+        log.info("알림 데이터 조회 완료. userId: {}, length: {}", notificationLimitRequest.getUserId(), notiListFromDb.size());
 
         // map으로 순환하며 프론트에서 바로 사용할 수 있는 JSON으로 가공
         return notiListFromDb.stream().map((notiData) -> {

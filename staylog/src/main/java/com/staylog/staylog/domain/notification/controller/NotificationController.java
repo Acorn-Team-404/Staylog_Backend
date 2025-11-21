@@ -1,5 +1,6 @@
 package com.staylog.staylog.domain.notification.controller;
 
+import com.staylog.staylog.domain.notification.dto.request.NotificationLimitRequest;
 import com.staylog.staylog.domain.notification.dto.request.ReadAllRequest;
 import com.staylog.staylog.domain.notification.dto.request.ReadRequest;
 import com.staylog.staylog.domain.notification.dto.response.NotificationResponse;
@@ -31,13 +32,17 @@ public class NotificationController {
      * 유저 한명의 알림 리스트 조회
      * @author 이준혁
      * @param userId 유저 PK
+     * @param notificationLimitRequest 부가정보 (last 값, limit)
      * @return List<NotificationResponse>
      */
     @Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 모든 알림 리스트를 조회합니다.")
     @GetMapping("/notification/{userId}")
-    public ResponseEntity<SuccessResponse<List<NotificationResponse>>> getNotificationList(@PathVariable long userId) {
+    public ResponseEntity<SuccessResponse<List<NotificationResponse>>> getNotificationList(@PathVariable long userId, @ModelAttribute NotificationLimitRequest notificationLimitRequest) {
 
-        List<NotificationResponse> notiList = notificationService.getNotificationList(userId);
+        // userId 담아서 전달
+        notificationLimitRequest.setUserId(userId);
+
+        List<NotificationResponse> notiList = notificationService.getNotificationList(notificationLimitRequest);
         log.info("목록 조회용 DetailsResponse 역직렬화 완료. userId: {}", userId);
 
         String message = messageUtil.getMessage(SuccessCode.NOTIFICATION_LIST_FIND.getMessageKey());

@@ -47,12 +47,31 @@
 
 
     <!-- 알림 데이터 조회 -->
-    <select id="findNotificationsByUserId" parameterType="long" resultType="NotificationSelectRequest">
+    <!-- 마지막 알림을 기준으로 limit를 이용해 제한된 수의 알림 조회 -->
+    <select id="findNotificationsByUserId" parameterType="notificationLimitRequest" resultType="NotificationSelectRequest">
         SELECT *
-        FROM notification
-        WHERE user_id = #{userId}
-        ORDER BY created_at DESC
+        FROM (
+            SELECT t.*, ROWNUM rnum
+            FROM (
+                SELECT *
+                FROM notification
+                WHERE user_id = #{userId}
+
+                <if test="lastCreatedAt != null and lastNotiId != null">
+
+                    <![CDATA[
+                    AND (created_at < #{lastCreatedAt} OR (created_at = #{lastCreatedAt} AND noti_id < #{lastNotiId}))
+                    ]]>
+                </if>
+                ORDER BY created_at DESC, noti_id DESC
+            ) t
+        )
+        <![CDATA[
+        WHERE rnum <= #{limit}
+        ]]>
     </select>
+
+
 
     <!-- 알림 데이터 삭제 -->
     <delete id="deleteByNotiId" parameterType="long">

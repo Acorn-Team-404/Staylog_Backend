@@ -1,9 +1,6 @@
 package com.staylog.staylog.domain.notification.mapper;
 
-import com.staylog.staylog.domain.notification.dto.request.NotificationRequest;
-import com.staylog.staylog.domain.notification.dto.request.NotificationSelectRequest;
-import com.staylog.staylog.domain.notification.dto.request.ReadAllRequest;
-import com.staylog.staylog.domain.notification.dto.request.ReadRequest;
+import com.staylog.staylog.domain.notification.dto.request.*;
 import com.staylog.staylog.domain.notification.dto.response.NotificationUserMapping;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -51,10 +48,10 @@ public interface NotificationMapper {
     /**
      * 유저 한명의 알림 리스트 조회
      * @author 이준혁
-     * @param userId 유저 PK
+     * @param notificationLimitRequest 부가정보 (userId, last 값, limit)
      * @return NotificationResponse
      */
-    public List<NotificationSelectRequest> findNotificationsByUserId(long userId);
+    public List<NotificationSelectRequest> findNotificationsByUserId(NotificationLimitRequest notificationLimitRequest);
 
 
 

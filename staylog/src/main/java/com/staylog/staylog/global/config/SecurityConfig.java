@@ -5,13 +5,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -21,7 +18,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Spring Security 설정
@@ -36,6 +32,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    // 항상 허용할 경로들 (메서드 상관없이 모두 허용)
+    private static final String[] PERMIT_ALL_PATHS = {
+            "/actuator/**",          // Spring Actuator
+            "/swagger-ui/**",        // Swagger UI
+            "/v3/api-docs/**",        // Swagger API Docs
+            "/error"                // 에러 페이지
+    };
 
 
     /**
@@ -57,31 +61,63 @@ public class SecurityConfig {
 
                 // 요청 인가 설정
                 .authorizeHttpRequests(auth -> auth
-                        // 인증 없이 접근 가능한 엔드포인트 (회원가입, 로그인 등)
-                        .requestMatchers(
-                                "/v1/**",
-                                "/v1/auth/**",           // 인증 관련 (회원가입, 로그인)
-                                "/v1/test/**",           // 테스트 엔드포인트
-                                "/error",                // 에러 페이지
-                                "/actuator/**",          // Spring Actuator
-                                "/swagger-ui/**",        // Swagger UI
-                                "/v3/api-docs/**",        // Swagger API Docs
-                                "/**"
-                        ).permitAll()
-                        
-                        /**
-                         * https 관련 문제 수정
-                         * @author 고윤제
-                         */
-                		.requestMatchers(HttpMethod.OPTIONS,"/**").permitAll()	// 프리플라이트 통과
 
-                        /**
-                         * SSE 구독 경로는 인증 필요
-                         * @author 이준혁
-                         */
-                        .requestMatchers("/api/v1/notification/subscribe").authenticated()	// 프리플라이트 통과
-                		
-                        // 나머지 요청은 인증 필요
+                        // CORS Preflight: OPTIONS 메서드 허용
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 공용 경로: 위에서 정의한 배열의 모든 경로 허용
+                        .requestMatchers(PERMIT_ALL_PATHS).permitAll()
+
+                        // Auth (로그인 필요 없음)
+                        .requestMatchers(HttpMethod.POST, "/v1/user", "/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/user/loginId/*/duplicate").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/user/nickname/*/duplicate").permitAll()
+
+                        // Email (로그인 필요 없음)
+                        .requestMatchers(HttpMethod.POST, "/v1/mail-send", "/v1/mail-check").permitAll()
+
+                        // Board (로그인 필요 없음 - GET/POST 일부)
+                        .requestMatchers(HttpMethod.POST, "/v1/boardList").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/v1/boards/*",
+                                "/journal",
+                                "/journal/*",
+                                "/review",
+                                "/review/*"
+                        ).permitAll()
+
+                        // 정적 리소스 이미지 파일 허용
+                        .requestMatchers(HttpMethod.GET, "/images/**").permitAll() // 👈 403 에러 해결!
+
+                        // VIP 전용
+                        .requestMatchers("/form/journal").hasAuthority("VIP")
+
+                        // Admin 전용
+                        .requestMatchers("/v1/admin/**").hasAuthority("ADMIN")
+
+                        // 로그인 필요
+                        // Board (수정/삭제/특정 조회)
+                        .requestMatchers(HttpMethod.POST, "/v1/boards").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/v1/boards/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/v1/boards/*").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/v1/boards/booking/*").authenticated()
+                        .requestMatchers("/form/review").authenticated()
+                        // Mypage
+                        .requestMatchers("/v1/mypage/**").authenticated()
+                        // Profile
+                        .requestMatchers(HttpMethod.POST, "/v1/profile").authenticated()
+                        // Notification & SSE
+                        .requestMatchers("/v1/notification/**").authenticated()
+                        .requestMatchers("/api/v1/notification/subscribe").authenticated() // SSE 구독 경로
+                        // Coupon
+                        .requestMatchers("/v1/coupon/**").authenticated()
+                        // Image (쓰기/수정/삭제)
+                        .requestMatchers(HttpMethod.POST, "/v1/images").authenticated() // 이미지 업로드
+                        .requestMatchers(HttpMethod.PUT, "/v1/images").authenticated() // 이미지 일괄 업데이트
+                        .requestMatchers(HttpMethod.DELETE, "/v1/image/*").authenticated() // 단일 이미지 삭제
+                        .requestMatchers(HttpMethod.DELETE, "/v1/images/*/*").authenticated() // 대상의 다중 이미지 삭제
+
+                        // 나머지 모든 요청
                         .anyRequest().authenticated()
                 )
 
