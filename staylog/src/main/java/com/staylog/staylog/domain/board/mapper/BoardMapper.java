@@ -16,9 +16,9 @@ public interface BoardMapper {
     List<BoardDto> getByBoardType(BoardListRequest boardListRequest);
     BoardDto getByBoardId(long boardId);
 
-    void insert(BoardDto boardDto);
-    void update(BoardDto boardDto);
-    void delete(long boardId);
+    int insert(BoardDto boardDto);
+    int update(BoardDto boardDto);
+    int delete(long boardId);
 
     int countByBoardType(String boardType);
     int countBoardList(BoardDto boardDto);

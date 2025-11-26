@@ -11,11 +11,8 @@ public interface LikesService {
 
     public void toggleLike(LikesDto likesDto);
 
-//    public void addLike(LikesDto dto);
-//    public void deleteLike(LikesDto dto);
-
     public int countByBoardId(long boardId);
-    public boolean liked(long boardId, long userId);
+    public boolean liked(LikesDto likesDto);
 
-    public List<LikesDto> getByBoardId(long boardId);
+//    public List<LikesDto> getByBoardId(long boardId);
 }

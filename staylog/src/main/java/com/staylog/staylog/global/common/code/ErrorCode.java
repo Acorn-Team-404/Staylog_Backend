@@ -82,6 +82,7 @@ public enum ErrorCode {
     BOARD_ALREADY_EXISTS(HttpStatus.CONFLICT, "E7002", "error.board.already.exists"),
     BOARD_NOT_AUTHORIZED(HttpStatus.FORBIDDEN, "E7003", "error.board.not.authorized"),
     BOARD_CREATE_FAILED(HttpStatus.BAD_REQUEST, "E7004", "error.board.not.created"),
+    BOARD_INVALID_INPUT(HttpStatus.EXPECTATION_FAILED, "E7005", "error.board.invalid.input"),
 
     // xxxxxxxxxxxxxxxxxxxx 저널 관련 에러 (8xxx) 사용안함 xxxxxxxxxxxxxx
     JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "E8001", "error.journal.not.found"),

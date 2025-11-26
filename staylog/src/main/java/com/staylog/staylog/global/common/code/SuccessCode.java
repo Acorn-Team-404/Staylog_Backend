@@ -59,6 +59,7 @@ public enum SuccessCode {
     BOARD_CREATED(201, "S7001", "success.board.created"),
     BOARD_UPDATED(200, "S7002", "success.board.updated"),
     BOARD_DELETED(200, "S7003", "success.board.deleted"),
+    BOARD_LIKES_FETCHED(200, "S7006", "success.board.likes"),
 
     // ==================== 이미지 관련 성공 (8xxx) ====================
     IMAGE_UPLOAD_SUCCESS(201, "S8001", "success.image.uploaded"),

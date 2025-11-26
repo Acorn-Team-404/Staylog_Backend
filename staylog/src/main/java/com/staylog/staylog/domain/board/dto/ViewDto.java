@@ -16,6 +16,7 @@ public class ViewDto {
     private Long viewId;
     private Long boardId;
     private Long userId;
+    private String viewToken;
     private LocalDateTime viewedAt;
 
 }

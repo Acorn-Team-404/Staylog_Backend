@@ -2,6 +2,7 @@ package com.staylog.staylog.domain.board.controller;
 
 import com.staylog.staylog.domain.board.dto.BoardDto;
 import com.staylog.staylog.domain.board.dto.BookingDto;
+import com.staylog.staylog.domain.board.dto.ViewDto;
 import com.staylog.staylog.domain.board.dto.request.BoardListRequest;
 import com.staylog.staylog.domain.board.dto.response.BoardListResponse;
 
@@ -146,7 +147,7 @@ public class BoardController {
         }
 
         // 조회수 처리 (1시간 내 중복 방지)
-        viewsService.addView(viewToken, boardId);
+        viewsService.insertView(new ViewDto());
 
         BoardDto board = boardService.getByBoardId(boardId);
 

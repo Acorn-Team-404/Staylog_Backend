@@ -2,11 +2,13 @@ package com.staylog.staylog.domain.board.dto;
 
 
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.ibatis.type.Alias;
 
 @Alias("LikesDto")
+@Builder
 @Getter
 @Setter
 public class LikesDto {

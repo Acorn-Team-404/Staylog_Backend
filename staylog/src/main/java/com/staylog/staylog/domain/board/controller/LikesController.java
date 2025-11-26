@@ -18,13 +18,13 @@ public class LikesController {
     private final MessageUtil messageUtil;
 
     // 게시글별 좋아요 수
-    @GetMapping("/likes/{boardId}")
+    @GetMapping(path = "/likes/{boardId}", params = "!userId")
     public ResponseEntity<SuccessResponse<Integer>> countByBoardId(@PathVariable long boardId) {
 
         int likesCount = likesService.countByBoardId(boardId);
 
         String code = SuccessCode.BOARD_DETAIL_FETCHED.name();
-        String message = messageUtil.getMessage(SuccessCode.BOARD_DETAIL_FETCHED.name());
+        String message = messageUtil.getMessage(SuccessCode.BOARD_DETAIL_FETCHED.getMessageKey());
 
         SuccessResponse<Integer> success = SuccessResponse.of(code, message, likesCount);
 
@@ -32,13 +32,20 @@ public class LikesController {
     }
 
     // 사용자의 좋아요 여부
-    @GetMapping("/likes/{boardId}/{userId}")
+    @GetMapping(path = "/likes/{boardId}", params = "userId")
     public ResponseEntity<SuccessResponse<Boolean>> liked(@PathVariable long boardId, @PathVariable long userId) {
 
-        boolean liked =  likesService.liked(boardId, userId);
+        // @PathVariable 로 받은 두개로 LikesDto 생성
+        LikesDto likesDto = LikesDto.builder()
+                .boardId(boardId)
+                .userId(userId)
+                .build();
+
+        // likeService 호출하여 좋아요 여부 확인
+        boolean liked = likesService.liked(likesDto);
 
         String code = SuccessCode.BOARD_DETAIL_FETCHED.name();
-        String message = SuccessCode.BOARD_DETAIL_FETCHED.name();
+        String message = messageUtil.getMessage(SuccessCode.BOARD_LIKES_FETCHED.getMessageKey());
         SuccessResponse<Boolean> success = SuccessResponse.of(code, message, liked);
 
         return ResponseEntity.ok(success);
@@ -46,10 +53,11 @@ public class LikesController {
 
 
 
-    // 좋아요 등록
-    @PostMapping("/likes/toggle")
+    // 좋아요 등록/삭제 토글
+    @PostMapping("/likes")
     public ResponseEntity<SuccessResponse<Void>> toggleLike(@RequestBody LikesDto likesDto) {
 
+        // likesService 호출하여 좋아요 등록/삭제 토글
         likesService.toggleLike(likesDto);
 
         String code = SuccessCode.BOARD_CREATED.name();
@@ -59,36 +67,6 @@ public class LikesController {
         return ResponseEntity.ok(success);
 
     }
-
-//
-//    // 좋아요 등록
-//    @PostMapping("/likes")
-//    public ResponseEntity<SuccessResponse<Void>> addLike(@RequestBody LikesDto likesDto) {
-//
-//        likesService.addLike(likesDto);
-//
-//        String code = SuccessCode.BOARD_CREATED.name();
-//        String message = messageUtil.getMessage(SuccessCode.BOARD_CREATED.getMessageKey());
-//        SuccessResponse<Void> success = SuccessResponse.of(code, message, null);
-//
-//        return ResponseEntity.ok(success);
-//
-//    }
-//
-//    // 좋아요 삭제
-//    @DeleteMapping("/likes")
-//    public ResponseEntity<SuccessResponse<Void>> deleteLike(@RequestBody LikesDto likesDto) {
-//
-//        likesService.deleteLike(likesDto);
-//
-//        String code = SuccessCode.BOARD_DELETED.name();
-//        String message = messageUtil.getMessage(SuccessCode.BOARD_DELETED.getMessageKey());
-//        SuccessResponse<Void> success = SuccessResponse.of(code, message, null);
-//
-//        return ResponseEntity.ok(success);
-//
-//    }
-
 
 
 
