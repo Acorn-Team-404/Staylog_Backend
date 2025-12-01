@@ -174,8 +174,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         Long bookingId = booking.getBookingId();
 
-        // 2. 결제 조회 (금액 검증 전에 먼저 조회)
-        Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
+        // 2. 비관적 락으로 결제 조회 (동시성 제어)
+        Payment payment = paymentMapper.findPaymentByBookingIdWithLock(bookingId);
         if (payment == null) {
             throw new PaymentFailedException("결제 정보를 찾을 수 없습니다");
         }
@@ -196,7 +196,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
         }
 
-        // 3. ✅ 금액 검증 (PAYMENT.AMOUNT와 비교 - 할인 후 최종 금액)
+        // 3.  금액 검증 (PAYMENT.AMOUNT와 비교 - 할인 후 최종 금액)
         if (!payment.getAmount().equals(request.getAmount())) {
             log.error("결제 금액 불일치: 결제금액(할인후)={}, Toss요청금액={}",
                     payment.getAmount(), request.getAmount());

@@ -31,10 +31,6 @@ public class PaymentCompensationService {
      * - PAYMENT -> PAY_FAILED
      * - RESERVATION -> RES_CANCELED
      *
-     * REQUIRES_NEW 전파 속성:
-     * - 외부 트랜잭션(confirmPayment)이 롤백되더라도 이 트랜잭션은 독립적으로 커밋됨
-     * - 결제 실패 이력을 DB에 남기기 위해 필요
-     *
      * @param bookingId 예약 ID
      * @param failureReason 실패 사유
      */
@@ -43,8 +39,8 @@ public class PaymentCompensationService {
         log.warn("보상 트랜잭션 실행: bookingId={}, reason={}", bookingId, failureReason);
 
         try {
-            // 1. PAYMENT 상태 -> FAILED
-            Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
+            // 1.  비관적 락으로 PAYMENT 조회 (동시성 제어)
+            Payment payment = paymentMapper.findPaymentByBookingIdWithLock(bookingId);
             if (payment != null) {
                 Long paymentId = payment.getPaymentId();
                 paymentMapper.updatePaymentFailure(paymentId, PaymentStatus.PAY_FAILED.getCode(), failureReason);
@@ -91,8 +87,8 @@ public class PaymentCompensationService {
         log.warn("결제 만료 보상 트랜잭션 실행: bookingId={}", bookingId);
 
         try {
-            // 1. PAYMENT 상태 -> EXPIRED (있는 경우에만)
-            Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
+            // 1.  비관적 락으로 PAYMENT 조회 (동시성 제어)
+            Payment payment = paymentMapper.findPaymentByBookingIdWithLock(bookingId);
             if (payment != null) {
                 Long paymentId = payment.getPaymentId();
                 String paymentStatus = payment.getStatus();

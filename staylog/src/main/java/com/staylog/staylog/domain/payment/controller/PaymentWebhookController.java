@@ -64,8 +64,8 @@ public class PaymentWebhookController {
             }
             Long bookingId = booking.getBookingId();
 
-            // 결제 조회
-            Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
+            // 비관적 락으로 결제 조회 (동시성 제어)
+            Payment payment = paymentMapper.findPaymentByBookingIdWithLock(bookingId);
             if (payment == null) {
                 log.warn("결제를 찾을 수 없음: bookingId={}", bookingId);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Payment not found");

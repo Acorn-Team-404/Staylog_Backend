@@ -34,6 +34,14 @@ public interface PaymentMapper {
     Payment findPaymentByBookingId(@Param("bookingId") Long bookingId);
 
     /**
+     * 결제 조회 (bookingId) + 비관적 락 (FOR UPDATE)
+     * 동시성 제어를 위해 행 락을 획득하여 조회
+     * @param bookingId 예약 ID
+     * @return 결제 정보
+     */
+    Payment findPaymentByBookingIdWithLock(@Param("bookingId") Long bookingId);
+
+    /**
      * @param orderId -> Reservation의 BookingNum
      * @return Payment엔티티 bookingId 포함
      */
