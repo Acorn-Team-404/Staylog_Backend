@@ -29,42 +29,62 @@ public class TossPaymentClient {
     private final ObjectMapper objectMapper;
 
     /**
-     * 결제 승인
+     * 결제 승인 (재시도 로직 포함)
+     * 일시적 오류 발생 시 최대 3회까지 재시도 (Exponential Backoff)
      */
     public TossPaymentResponse confirm(TossConfirmRequest request) {
         String url = tossConfig.getApiUrl() + "/confirm";
+        int maxRetries = 3;
+        int attempt = 0;
 
         HttpHeaders headers = createHeaders();
-
-        //멱등키 추가하기 (결제용)
         headers.set("Idempotency-Key", generatePaymentIdempotencyKey(request.getPaymentKey()));
-
         HttpEntity<TossConfirmRequest> entity = new HttpEntity<>(request, headers);
 
-        try {
-            log.info("토스 결제 승인 요청: paymentKey={}, orderId={}, amount={}",
-                     request.getPaymentKey(), request.getOrderId(), request.getAmount());
+        while (attempt < maxRetries) {
+            attempt++;
 
-            // 요청 바디 확인
-            log.info("Request Body: {}", entity.getBody());
-            // 요청 헤더 확인
-            entity.getHeaders().forEach((key, value) -> log.info("Header: {}={}", key, value));
+            try {
+                log.info("토스 결제 승인 요청 (시도 {}/{}): paymentKey={}, orderId={}, amount={}",
+                        attempt, maxRetries, request.getPaymentKey(), request.getOrderId(), request.getAmount());
 
-            ResponseEntity<TossPaymentResponse> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                TossPaymentResponse.class
-            );
+                ResponseEntity<TossPaymentResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    TossPaymentResponse.class
+                );
 
-            log.info("토스 결제 승인 성공: paymentKey={}", request.getPaymentKey());
-            return response.getBody();
+                log.info("토스 결제 승인 성공: paymentKey={}", request.getPaymentKey());
+                return response.getBody();
 
-        } catch (HttpStatusCodeException e) {
-            log.error("토스 결제 승인 실패: statusCode={}, body={}",
-                      e.getStatusCode(), e.getResponseBodyAsString());
-            throw parseTossError(e);
+            } catch (HttpStatusCodeException e) {
+                log.error("토스 결제 승인 실패 (시도 {}/{}): statusCode={}, body={}",
+                          attempt, maxRetries, e.getStatusCode(), e.getResponseBodyAsString());
+
+                boolean isRetryable = isRetryableError(e);
+
+                if (isRetryable && attempt < maxRetries) {
+                    long waitTimeMs = calculateBackoffMs(attempt);
+                    log.warn("일시적 오류 감지, {}ms 후 재시도 (시도 {}/{}): statusCode={}",
+                             waitTimeMs, attempt, maxRetries, e.getStatusCode());
+
+                    try {
+                        Thread.sleep(waitTimeMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("재시도 대기 중 인터럽트 발생");
+                        throw parseTossError(e);
+                    }
+                    continue;
+                }
+
+                log.error("토스 결제 승인 최종 실패: 재시도 불가능하거나 최대 시도 횟수 초과");
+                throw parseTossError(e);
+            }
         }
+
+        throw new TossApiException("RETRY_EXHAUSTED", "최대 재시도 횟수 초과");
     }
 
     /**
@@ -209,5 +229,33 @@ public class TossPaymentClient {
         } catch (Exception ex) {
             return new TossApiException("UNKNOWN", e.getMessage());
         }
+    }
+
+    /**
+     * 재시도 가능한 오류인지 판단
+     * HTTP 상태 코드 기반으로 일시적 오류 여부 확인
+     */
+    private boolean isRetryableError(HttpStatusCodeException e) {
+        int statusCode = e.getStatusCode().value();
+
+        // 재시도 가능한 HTTP 상태 코드
+        // 503: Service Unavailable (서버 일시 과부하)
+        // 504: Gateway Timeout (게이트웨이 타임아웃)
+        // 408: Request Timeout (요청 타임아웃)
+        // 429: Too Many Requests (요청 횟수 초과)
+        return statusCode == 503
+            || statusCode == 504
+            || statusCode == 408
+            || statusCode == 429;
+    }
+
+    /**
+     * Exponential Backoff 대기 시간 계산
+     * 1차 재시도: 1000ms (1초)
+     * 2차 재시도: 2000ms (2초)
+     * 3차 재시도: 4000ms (4초)
+     */
+    private long calculateBackoffMs(int attempt) {
+        return (long) Math.pow(2, attempt - 1) * 1000;
     }
 }
