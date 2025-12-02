@@ -201,13 +201,19 @@ public class PaymentServiceImpl implements PaymentService {
             log.error("결제 금액 불일치: 결제금액(할인후)={}, Toss요청금액={}",
                     payment.getAmount(), request.getAmount());
 
-            // 보상 트랜잭션 실행 (독립 트랜잭션)
-            compensationService.compensateFailedPayment(bookingId, "결제 금액 불일치");
+            // 보상 트랜잭션 실행 (독립 트랜잭션, 락 없이 실행)
+            compensationService.compensateFailedPayment(
+                    bookingId,
+                    payment.getPaymentId(),
+                    payment.getCouponId(),
+                    "결제 금액 불일치"
+            );
 
             throw new PaymentAmountMismatchException(payment.getAmount(), request.getAmount());
         }
 
         Long paymentId = payment.getPaymentId();
+        Long couponId = payment.getCouponId();
 
         try {
             // 4. Toss API 결제 승인 호출
@@ -299,16 +305,26 @@ public class PaymentServiceImpl implements PaymentService {
             // 6. 실패: 보상 트랜잭션 (PAYMENT(FAILED) + RESERVATION(CANCELED))
             log.error("Toss 결제 승인 실패: {}", e.getMessage(), e);
 
-            // 독립적인 트랜잭션으로 보상 실행 (REQUIRES_NEW)
-            compensationService.compensateFailedPayment(bookingId, e.getTossErrorMessage());
+            // 독립적인 트랜잭션으로 보상 실행 (REQUIRES_NEW, 락 없이 실행)
+            compensationService.compensateFailedPayment(
+                    bookingId,
+                    paymentId,
+                    couponId,
+                    e.getTossErrorMessage()
+            );
 
             throw e;  // 호출자에게 예외 전파
         } catch (Exception e) {
             // 7. 기타 예외: 보상 트랜잭션
             log.error("결제 승인 중 예외 발생: {}", e.getMessage(), e);
 
-            // 독립적인 트랜잭션으로 보상 실행 (REQUIRES_NEW)
-            compensationService.compensateFailedPayment(bookingId, "결제 처리 중 오류 발생");
+            // 독립적인 트랜잭션으로 보상 실행 (REQUIRES_NEW, 락 없이 실행)
+            compensationService.compensateFailedPayment(
+                    bookingId,
+                    paymentId,
+                    couponId,
+                    "결제 처리 중 오류 발생"
+            );
 
             throw new PaymentFailedException("결제 처리 중 오류가 발생했습니다");
         }
