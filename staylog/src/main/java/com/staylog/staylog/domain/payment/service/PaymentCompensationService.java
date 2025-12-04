@@ -4,6 +4,8 @@ import com.staylog.staylog.domain.booking.mapper.BookingMapper;
 import com.staylog.staylog.domain.coupon.service.CouponService;
 import com.staylog.staylog.domain.payment.entity.Payment;
 import com.staylog.staylog.domain.payment.mapper.PaymentMapper;
+import com.staylog.staylog.external.toss.client.TossPaymentClient;
+import com.staylog.staylog.external.toss.dto.request.TossCancelRequest;
 import com.staylog.staylog.global.constant.PaymentStatus;
 import com.staylog.staylog.global.constant.ReservationStatus;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +26,8 @@ public class PaymentCompensationService {
 
     private final PaymentMapper paymentMapper;
     private final BookingMapper bookingMapper;
-    private final CouponService couponService;  // 🆕 쿠폰 서비스 추가
+    private final CouponService couponService;
+    private final TossPaymentClient tossPaymentClient;
 
     /**
      * 결제 실패 시 보상 트랜잭션 실행
@@ -69,6 +72,29 @@ public class PaymentCompensationService {
         } catch (Exception e) {
             log.error("보상 트랜잭션 실패: bookingId={}, paymentId={}, error={}", bookingId, paymentId, e.getMessage(), e);
             throw e;  // 보상 트랜잭션 롤백 (외부 트랜잭션과 무관)
+        }
+    }
+
+    /**
+     * Toss 결제 취소 (보상)
+     * Phase 3 실패 시 Toss API로 이미 승인된 결제를 취소
+     *
+     * @param paymentKey Toss 결제 키
+     * @param reason 취소 사유
+     */
+    public void compensateTossPayment(String paymentKey, String reason) {
+        log.warn("Toss 결제 취소 시도: paymentKey={}, reason={}", paymentKey, reason);
+
+        try {
+            TossCancelRequest cancelRequest = TossCancelRequest.builder()
+                    .cancelReason(reason)
+                    .build();
+
+            tossPaymentClient.cancel(paymentKey, cancelRequest);
+            log.info("Toss 결제 취소 완료: paymentKey={}", paymentKey);
+
+        } catch (Exception e) {
+            log.error("Toss 결제 취소 실패: paymentKey={}, error={}", paymentKey, e.getMessage(), e);
         }
     }
 
