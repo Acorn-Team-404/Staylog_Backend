@@ -2,7 +2,9 @@ package com.staylog.staylog.domain.payment.service;
 
 import com.staylog.staylog.domain.booking.mapper.BookingMapper;
 import com.staylog.staylog.domain.coupon.service.CouponService;
+import com.staylog.staylog.domain.payment.entity.CompensationFailure;
 import com.staylog.staylog.domain.payment.entity.Payment;
+import com.staylog.staylog.domain.payment.mapper.CompensationFailureMapper;
 import com.staylog.staylog.domain.payment.mapper.PaymentMapper;
 import com.staylog.staylog.external.toss.client.TossPaymentClient;
 import com.staylog.staylog.external.toss.dto.request.TossCancelRequest;
@@ -10,9 +12,16 @@ import com.staylog.staylog.global.constant.PaymentStatus;
 import com.staylog.staylog.global.constant.ReservationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 /**
  * 결제 보상 트랜잭션 서비스
@@ -28,9 +37,10 @@ public class PaymentCompensationService {
     private final BookingMapper bookingMapper;
     private final CouponService couponService;
     private final TossPaymentClient tossPaymentClient;
+    private final CompensationFailureMapper dlqMapper;
 
     /**
-     * 결제 실패 시 보상 트랜잭션 실행
+     * 결제 실패 시 보상 트랜잭션 실행 (재시도 3회)
      * - PAYMENT -> PAY_FAILED
      * - RESERVATION -> RES_CANCELED
      *
@@ -39,6 +49,11 @@ public class PaymentCompensationService {
      * @param couponId 쿠폰 ID (nullable: 쿠폰 미사용 시 null)
      * @param failureReason 실패 사유
      */
+    @Retryable(
+        value = {DataAccessException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2)
+    )
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void compensateFailedPayment(Long bookingId, Long paymentId, Long couponId, String failureReason) {
         log.warn("보상 트랜잭션 실행: bookingId={}, paymentId={}, reason={}", bookingId, paymentId, failureReason);
@@ -76,12 +91,43 @@ public class PaymentCompensationService {
     }
 
     /**
-     * Toss 결제 취소 (보상)
+     * 보상 트랜잭션 3회 재시도 실패 시 DLQ 저장
+     */
+    @Recover
+    public void saveFailedPaymentToDLQ(DataAccessException e, Long bookingId,
+                                       Long paymentId, Long couponId, String failureReason) {
+        log.error("보상 트랜잭션 3회 재시도 실패, DLQ 저장: bookingId={}, error={}",
+                  bookingId, e.getMessage());
+
+        CompensationFailure failure = CompensationFailure.builder()
+            .type("PAYMENT_FAIL")
+            .bookingId(bookingId)
+            .paymentId(paymentId)
+            .couponId(couponId)
+            .reason(failureReason)
+            .errorMessage(e.getMessage())
+            .stackTrace(getStackTrace(e))
+            .retryCount(0)
+            .status("PENDING")
+            .build();
+
+        dlqMapper.insert(failure);
+
+        log.error("DLQ 저장 완료: id={}, bookingId={}", failure.getId(), bookingId);
+    }
+
+    /**
+     * Toss 결제 취소 (보상) - 재시도 3회
      * Phase 3 실패 시 Toss API로 이미 승인된 결제를 취소
      *
      * @param paymentKey Toss 결제 키
      * @param reason 취소 사유
      */
+    @Retryable(
+        value = {Exception.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 1000, multiplier = 2)
+    )
     public void compensateTossPayment(String paymentKey, String reason) {
         log.warn("Toss 결제 취소 시도: paymentKey={}, reason={}", paymentKey, reason);
 
@@ -95,7 +141,41 @@ public class PaymentCompensationService {
 
         } catch (Exception e) {
             log.error("Toss 결제 취소 실패: paymentKey={}, error={}", paymentKey, e.getMessage(), e);
+            throw e;  // 재시도를 위해 예외 던짐
         }
+    }
+
+    /**
+     * Toss 취소 3회 재시도 실패 시 DLQ 저장
+     */
+    @Recover
+    public void saveTossCancelToDLQ(Exception e, String paymentKey, String reason) {
+        log.error("Toss 결제 취소 3회 재시도 실패, DLQ 저장: paymentKey={}, error={}",
+                  paymentKey, e.getMessage());
+
+        CompensationFailure failure = CompensationFailure.builder()
+            .type("TOSS_CANCEL")
+            .paymentKey(paymentKey)
+            .reason(reason)
+            .errorMessage(e.getMessage())
+            .stackTrace(getStackTrace(e))
+            .retryCount(0)
+            .status("PENDING")
+            .build();
+
+        dlqMapper.insert(failure);
+
+        log.error("DLQ 저장 완료: id={}, paymentKey={}", failure.getId(), paymentKey);
+    }
+
+    /**
+     * 스택 트레이스를 문자열로 변환
+     */
+    private String getStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        return sw.toString();
     }
 
     /**
