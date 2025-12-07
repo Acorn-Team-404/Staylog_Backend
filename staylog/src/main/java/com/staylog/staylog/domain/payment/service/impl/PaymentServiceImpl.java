@@ -22,9 +22,11 @@ import com.staylog.staylog.external.toss.dto.request.TossVirtualAccountRequest;
 import com.staylog.staylog.external.toss.dto.response.TossPaymentResponse;
 import com.staylog.staylog.external.toss.dto.response.TossVirtualAccountResponse;
 import com.staylog.staylog.external.toss.dto.response.VirtualAccount;
+import com.staylog.staylog.global.common.code.ErrorCode;
 import com.staylog.staylog.global.constant.PaymentStatus;
 import com.staylog.staylog.global.constant.ReservationStatus;
 import com.staylog.staylog.global.event.PaymentConfirmEvent;
+import com.staylog.staylog.global.exception.custom.ForbiddenException;
 import com.staylog.staylog.global.exception.custom.booking.BookingNotFoundException;
 import com.staylog.staylog.global.exception.custom.payment.PaymentAmountMismatchException;
 import com.staylog.staylog.global.exception.custom.payment.PaymentFailedException;
@@ -60,18 +62,22 @@ public class PaymentServiceImpl implements PaymentService {
 
     /**
      * 결제 준비
+     * - 예약 소유자 확인 (인가)
      * - 예약 상태 검증 (PENDING & 5분 이내)
      * - 결제 생성 (READY 상태)
      */
     @Override
     @Transactional
-    public PreparePaymentResponse preparePayment(PreparePaymentRequest request) {
-        log.info("결제 준비 시작: bookingId={}, amount={}", request.getBookingId(), request.getAmount());
+    public PreparePaymentResponse preparePayment(PreparePaymentRequest request, Long userId) {
+        log.info("결제 준비 시작: userId={}, bookingId={}, amount={}", userId, request.getBookingId(), request.getAmount());
 
-        // 1. 예약 상태 검증 (PENDING & 5분 이내)
+        // 1. 예약 소유자 확인 (인가)
+        validateBookingOwnership(request.getBookingId(), userId);
+
+        // 2. 예약 상태 검증 (PENDING & 5분 이내)
         bookingService.validateBookingPending(request.getBookingId());
 
-        // 2. 예약 정보 조회
+        // 3. 예약 정보 조회
         BookingDetailResponse booking = bookingMapper.findBookingById(request.getBookingId());
         if (booking == null) {
             throw new BookingNotFoundException(request.getBookingId());
@@ -80,15 +86,14 @@ public class PaymentServiceImpl implements PaymentService {
         Long bookingAmount = booking.getAmount();
         String bookingNum = booking.getBookingNum();
         String guestName = booking.getGuestName();
-        Long userId = booking.getUserId();
 
-        // 3. 금액 검증
+        // 4. 금액 검증
         if (!bookingAmount.equals(request.getAmount())) {
             log.error("결제 금액 불일치: 예약금액={}, 요청금액={}", bookingAmount, request.getAmount());
             throw new PaymentAmountMismatchException(bookingAmount, request.getAmount());
         }
 
-        // 4. 쿠폰 할인 계산 (couponId가 있는 경우)
+        // 5. 쿠폰 할인 계산 (couponId가 있는 경우)
         Long originalAmount = request.getAmount();  // 할인 전 금액
         Long discountAmount = 0L;
         Long finalAmount = originalAmount;
@@ -117,7 +122,7 @@ public class PaymentServiceImpl implements PaymentService {
             bookingMapper.updateFinalAmount(request.getBookingId(), finalAmount);
         }
 
-        // 5. 계좌이체인 경우 만료 시간 연장 (5분 → 7일)
+        // 6. 계좌이체인 경우 만료 시간 연장 (5분 → 7일)
         if ("TRANSFER".equals(request.getMethod())) {
             LocalDateTime newExpiresAt = LocalDateTime.now().plusDays(7);
             bookingMapper.updateExpiresAt(request.getBookingId(), newExpiresAt);
@@ -127,13 +132,13 @@ public class PaymentServiceImpl implements PaymentService {
         // 7. 결제 생성 (READY 상태, 쿠폰 정보 포함)
         Payment payment = Payment.builder()
                 .status(PaymentStatus.PAY_READY.getCode())
-                .amount(finalAmount) //할인 후 최종금액
+                .amount(finalAmount)
                 .method(request.getMethod())
                 .bookingId(request.getBookingId())
-                .paymentKey(null) // READY상태일 떄는 토스에서 보내주는 결제 키 없음 (Toss 승인하면 업데이트)
-                .couponId(couponId) // 쿠폰
-                .originalAmount(originalAmount) //할인 전 금액
-                .discountAmount(discountAmount) // 할인 금액
+                .paymentKey(null)
+                .couponId(couponId)
+                .originalAmount(originalAmount)
+                .discountAmount(discountAmount)
                 .requestedAt(OffsetDateTime.now())
                 .build();
 
@@ -162,12 +167,12 @@ public class PaymentServiceImpl implements PaymentService {
      * Phase 3: DB 업데이트 (짧은 트랜잭션 + 비관적 락)
      */
     @Override
-    public PaymentResultResponse confirmPayment(ConfirmPaymentRequest request) {
-        log.info("결제 승인 시작: paymentKey={}, orderId={}, amount={}",
-                request.getPaymentKey(), request.getOrderId(), request.getAmount());
+    public PaymentResultResponse confirmPayment(ConfirmPaymentRequest request, Long userId) {
+        log.info("결제 승인 시작: userId={}, paymentKey={}, orderId={}, amount={}",
+                userId, request.getPaymentKey(), request.getOrderId(), request.getAmount());
 
         // Phase 1: 검증 (트랜잭션 없음, 빠른 실패)
-        PaymentValidationResult validation = validatePaymentRequest(request);
+        PaymentValidationResult validation = validatePaymentRequest(request, userId);
 
         // Phase 2: Toss API 호출 (트랜잭션 없음)
         TossPaymentResponse tossResponse = callTossApiWithCompensation(
@@ -191,7 +196,7 @@ public class PaymentServiceImpl implements PaymentService {
      * Phase 1: 결제 검증 (트랜잭션 없음)
      * 락 없이 빠른 검증 수행
      */
-    private PaymentValidationResult validatePaymentRequest(ConfirmPaymentRequest request) {
+    private PaymentValidationResult validatePaymentRequest(ConfirmPaymentRequest request, Long userId) {
         // 1. 예약 조회
         Booking booking = bookingMapper.findBookingByBookingNum(request.getOrderId());
         if (booking == null) {
@@ -200,19 +205,22 @@ public class PaymentServiceImpl implements PaymentService {
 
         Long bookingId = booking.getBookingId();
 
-        // 2. 결제 조회 (락 없이)
+        // 2. 예약 소유자 확인 (인가)
+        validateBookingOwnership(bookingId, userId);
+
+        // 3. 결제 조회 (락 없이)
         Payment payment = paymentMapper.findPaymentByBookingId(bookingId);
         if (payment == null) {
             throw new PaymentFailedException("결제 정보를 찾을 수 없습니다");
         }
 
-        // 3. 이미 완료된 결제 체크 (빠른 실패)
+        // 4. 이미 완료된 결제 체크 (빠른 실패)
         if ("PAY_PAID".equals(payment.getStatus())) {
             log.info("이미 완료된 결제: paymentId={}, bookingId={}", payment.getPaymentId(), bookingId);
             throw new PaymentFailedException("이미 완료된 결제입니다");
         }
 
-        // 4. 금액 검증
+        // 5. 금액 검증
         if (!payment.getAmount().equals(request.getAmount())) {
             log.error("결제 금액 불일치: 결제금액={}, 요청금액={}",
                     payment.getAmount(), request.getAmount());
@@ -378,6 +386,24 @@ public class PaymentServiceImpl implements PaymentService {
                 .approvedAt(tossResponse.getApprovedAt())
                 .virtualAccount(tossResponse.getVirtualAccount())
                 .build();
+    }
+
+    /**
+     * 예약 소유자 확인 (인가)
+     * 본인의 예약만 결제 가능
+     */
+    private void validateBookingOwnership(Long bookingId, Long userId) {
+        Booking booking = bookingMapper.findById(bookingId);
+
+        if (booking == null) {
+            throw new BookingNotFoundException(bookingId);
+        }
+
+        if (!booking.getUserId().equals(userId)) {
+            log.warn("예약 소유자 불일치: bookingId={}, requestUserId={}, bookingOwnerId={}",
+                    bookingId, userId, booking.getUserId());
+            throw new ForbiddenException(ErrorCode.FORBIDDEN, "본인의 예약만 결제 가능합니다");
+        }
     }
 
     /**

@@ -116,6 +116,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/v1/images").authenticated() // 이미지 일괄 업데이트
                         .requestMatchers(HttpMethod.DELETE, "/v1/image/*").authenticated() // 단일 이미지 삭제
                         .requestMatchers(HttpMethod.DELETE, "/v1/images/*/*").authenticated() // 대상의 다중 이미지 삭제
+                        // Payment (결제 인증 필수)
+                        .requestMatchers("/v1/payments/**").authenticated()
 
                         // 나머지 모든 요청
                         .anyRequest().authenticated()
