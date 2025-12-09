@@ -393,15 +393,16 @@ public class PaymentServiceImpl implements PaymentService {
      * 본인의 예약만 결제 가능
      */
     private void validateBookingOwnership(Long bookingId, Long userId) {
-        Booking booking = bookingMapper.findById(bookingId);
 
-        if (booking == null) {
+        Long bookingOwnerId = bookingMapper.findUserIdByBookingId(bookingId);
+
+        if (bookingOwnerId == null) {
             throw new BookingNotFoundException(bookingId);
         }
 
-        if (!booking.getUserId().equals(userId)) {
+        if (!bookingOwnerId.equals(userId)) {
             log.warn("예약 소유자 불일치: bookingId={}, requestUserId={}, bookingOwnerId={}",
-                    bookingId, userId, booking.getUserId());
+                    bookingId, userId, bookingOwnerId);
             throw new ForbiddenException(ErrorCode.FORBIDDEN, "본인의 예약만 결제 가능합니다");
         }
     }
