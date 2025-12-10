@@ -79,6 +79,12 @@ public class SecurityConfig {
                         // Home (로그인 필요 없음)
                         .requestMatchers(HttpMethod.GET, "/v1/home").permitAll()
 
+                        // Common Codes (로그인 필요 없음)
+                        .requestMatchers(HttpMethod.GET, "/v1/common-codes/**").permitAll()
+
+                        // Images (로그인 필요 없음 - 조회만)
+                        .requestMatchers(HttpMethod.GET, "/v1/images/**").permitAll()
+
                         // Board (로그인 필요 없음 - GET/POST 일부)
                         .requestMatchers(HttpMethod.POST, "/v1/boardList").permitAll()
                         .requestMatchers(HttpMethod.GET,
@@ -88,9 +94,6 @@ public class SecurityConfig {
                                 "/review",
                                 "/review/*"
                         ).permitAll()
-
-                        // 정적 리소스 이미지 파일 허용
-                        .requestMatchers(HttpMethod.GET, "/images/**").permitAll() // 👈 403 에러 해결!
 
                         // VIP 전용
                         .requestMatchers("/form/journal").hasAuthority("VIP")
