@@ -76,6 +76,9 @@ public class SecurityConfig {
                         // Email (로그인 필요 없음)
                         .requestMatchers(HttpMethod.POST, "/v1/mail-send", "/v1/mail-check").permitAll()
 
+                        // Home (로그인 필요 없음)
+                        .requestMatchers(HttpMethod.GET, "/v1/home").permitAll()
+
                         // Board (로그인 필요 없음 - GET/POST 일부)
                         .requestMatchers(HttpMethod.POST, "/v1/boardList").permitAll()
                         .requestMatchers(HttpMethod.GET,
