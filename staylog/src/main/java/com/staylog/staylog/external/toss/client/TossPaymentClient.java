@@ -81,6 +81,21 @@ public class TossPaymentClient {
 
                 log.error("토스 결제 승인 최종 실패: 재시도 불가능하거나 최대 시도 횟수 초과");
                 throw parseTossError(e);
+
+            } catch (Exception e) {
+                // RestTemplate의 다른 예외 처리 (타임아웃, 네트워크 오류, 파싱 실패 등)
+                String errorType = e.getClass().getSimpleName();
+                String errorMessage = e.getMessage();
+
+                log.error("토스 결제 승인 중 예외 발생 (시도 {}/{}): type={}, message={}, paymentKey={}, orderId={}",
+                          attempt, maxRetries, errorType, errorMessage,
+                          request.getPaymentKey(), request.getOrderId(), e);
+
+                // 재시도하지 않고 바로 실패 처리 (타임아웃은 재시도해도 소용없음)
+                throw new TossApiException(
+                    "PAYMENT_API_ERROR",
+                    String.format("결제 API 호출 실패 [%s]: %s", errorType, errorMessage)
+                );
             }
         }
 
