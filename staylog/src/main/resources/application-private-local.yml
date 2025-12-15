@@ -9,6 +9,8 @@ spring:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PW}
+    hikari:
+      connection-init-sql: ALTER SESSION SET CURRENT_SCHEMA = TEAM404F
 # =====================================
 # Email 인증
 # 이메일, 시크릿 키
