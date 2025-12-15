@@ -213,15 +213,16 @@
     <!-- bookingId로 숙소PK, 숙소명 조회 -->
     <select id="findAccommodationIdAndNameByBookingId" parameterType="long" resultType="accommodationIdAndName">
         SELECT a.accommodation_id AS accommodation_id, a.name AS accommodation_name
-        FROM reservation res JOIN room r ON res.room_id = r.room_id
-            JOIN accommodation a ON r.accommodation_id = a.accommodation_id
+        FROM TEAM404F.RESERVATION res
+            JOIN TEAM404F.ROOM r ON res.room_id = r.room_id
+            JOIN TEAM404F.ACCOMMODATION a ON r.accommodation_id = a.accommodation_id
         WHERE res.booking_id = #{bookingId}
     </select>
 
     <!-- bookingId로 userId 조회 -->
     <select id="findUserIdByBookingId" parameterType="long" resultType="long">
         SELECT user_id
-        FROM reservation
+        FROM TEAM404F.RESERVATION
         WHERE booking_id = #{bookingId}
     </select>
     
