@@ -62,23 +62,23 @@
     <!-- orderId(bookingNum)로 Payment 조회 -->
     <select id="findByOrderId" resultMap="PaymentResultMap">
         SELECT
-        p.payment_id,
-        p.status,
-        p.amount,
-        p.method,
-        p.booking_id,
-        p.payment_key,
-        p.coupon_id,
-        p.original_amount,
-        p.discount_amount,
-        p.requested_at,
-        p.approved_at,
-        p.refunded_at,
-        p.refund_id,
-        p.refund_amount
-        FROM payments p
-        INNER JOIN bookings b ON p.booking_id = b.booking_id
-        WHERE b.booking_num = #{orderId}
+        p.PAYMENT_ID,
+        p.STATUS,
+        p.AMOUNT,
+        p."METHOD",
+        p.BOOKING_ID,
+        p.PAYMENT_KEY,
+        p.COUPON_ID,
+        p.ORIGINAL_AMOUNT,
+        p.DISCOUNT_AMOUNT,
+        p.REQUESTED_AT,
+        p.APPROVED_AT,
+        p.REFUNDED_AT,
+        p.REFUND_ID,
+        p.REFUND_AMOUNT
+        FROM TEAM404F.PAYMENT p
+        INNER JOIN TEAM404F.RESERVATION b ON p.BOOKING_ID = b.BOOKING_ID
+        WHERE b.BOOKING_NUM = #{orderId}
     </select>
 
     <!-- 결제 조회 (ID) - Payment Entity 반환 -->
@@ -194,9 +194,9 @@
 
     <!-- 결제 PK로 쿠폰 PK 조회 -->
     <select id="findCouponIdByPaymentId" parameterType="long" resultType="Long">
-        SELECT coupon_id
-        FROM payment
-        WHERE payment_id = #{paymentId}
+        SELECT COUPON_ID
+        FROM TEAM404F.PAYMENT
+        WHERE PAYMENT_ID = #{paymentId}
     </select>
 
     <!-- 가상계좌 정보 업데이트 (Toss 응답에서 받은 정보 저장) -->
@@ -211,17 +211,17 @@
 
 
     <insert id="insertVirtualAccountPayment" parameterType="map">
-        INSERT INTO PAYMENT (BOOKING_ID, AMOUNT, STATUS, REQUESTED_AT)
+        INSERT INTO TEAM404F.PAYMENT (BOOKING_ID, AMOUNT, STATUS, REQUESTED_AT)
         VALUES (#{bookingId}, #{amount}, 'PAY_READY', SYSTIMESTAMP)
     </insert>
 
 
     <!-- 가상계좌 웹훅 입금 시각 처리 -->
     <update id="updateVirtualAccountDeposit">
-        UPDATE payment
-        SET status = #{code},
-        approved_at = #{approvedAt}
-        WHERE payment_id = #{paymentId}
+        UPDATE TEAM404F.PAYMENT
+        SET STATUS = #{code},
+            APPROVED_AT = #{approvedAt}
+        WHERE PAYMENT_ID = #{paymentId}
     </update>
 
 </mapper>
