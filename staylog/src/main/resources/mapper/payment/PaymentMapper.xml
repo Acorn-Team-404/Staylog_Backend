@@ -129,27 +129,27 @@
 
     <!-- 결제 조회 (bookingId) + 비관적 락 (FOR UPDATE) - 동시성 제어 -->
     <select id="findPaymentByBookingIdWithLock" resultMap="PaymentResultMap">
-        SELECT * FROM (
-            SELECT
-                PAYMENT_ID,
-                STATUS,
-                AMOUNT,
-                "METHOD",
-                BOOKING_ID,
-                PAYMENT_KEY,
-                REQUESTED_AT,
-                APPROVED_AT,
-                REFUNDED_AT,
-                REFUND_ID,
-                REFUND_AMOUNT,
-                COUPON_ID,
-                ORIGINAL_AMOUNT,
-                DISCOUNT_AMOUNT
+        SELECT
+            PAYMENT_ID,
+            STATUS,
+            AMOUNT,
+            "METHOD",
+            BOOKING_ID,
+            PAYMENT_KEY,
+            REQUESTED_AT,
+            APPROVED_AT,
+            REFUNDED_AT,
+            REFUND_ID,
+            REFUND_AMOUNT,
+            COUPON_ID,
+            ORIGINAL_AMOUNT,
+            DISCOUNT_AMOUNT
+        FROM TEAM404F.PAYMENT
+        WHERE PAYMENT_ID = (
+            SELECT MAX(PAYMENT_ID)
             FROM TEAM404F.PAYMENT
             WHERE BOOKING_ID = #{bookingId}
-            ORDER BY PAYMENT_ID DESC
         )
-        WHERE ROWNUM &lt;= 1
         FOR UPDATE
     </select>
 
