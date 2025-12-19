@@ -12,6 +12,7 @@ import com.staylog.staylog.global.exception.custom.booking.BookingNotPendingExce
 import com.staylog.staylog.global.exception.custom.booking.RoomNotAvailableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +41,7 @@ public class BookingServiceImpl implements BookingService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = "searchResults", allEntries = true)
     public BookingDetailResponse createBooking(Long userId, String guestName, CreateBookingRequest request) {
         log.info("예약 생성 시작: userId={}, guestName={}, roomId={}, checkIn={}, checkOut={}",
                 userId, guestName, request.getRoomId(), request.getCheckIn(), request.getCheckOut());
@@ -151,6 +153,7 @@ public class BookingServiceImpl implements BookingService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = "searchResults", allEntries = true)
     public void updateBookingStatus(Long bookingId, String status) {
         bookingMapper.updateBookingStatus(bookingId, status);
         log.info("예약 상태 업데이트: bookingId={}, status={}", bookingId, status);
@@ -163,6 +166,7 @@ public class BookingServiceImpl implements BookingService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = "searchResults", allEntries = true)
     public int cancelExpiredBookings() {
         LocalDateTime now = LocalDateTime.now();
         List<Booking> expiredBookings = bookingMapper.findExpiredBookings(now);

@@ -85,6 +85,9 @@ public class SecurityConfig {
                         // Images (로그인 필요 없음 - 조회만)
                         .requestMatchers(HttpMethod.GET, "/v1/images/**").permitAll()
 
+                        // Search (로그인 필요 없음)
+                        .requestMatchers(HttpMethod.GET, "/v1/search/**").permitAll()
+
                         // Board (로그인 필요 없음 - GET/POST 일부)
                         .requestMatchers(HttpMethod.POST, "/v1/boardList").permitAll()
                         .requestMatchers(HttpMethod.GET,

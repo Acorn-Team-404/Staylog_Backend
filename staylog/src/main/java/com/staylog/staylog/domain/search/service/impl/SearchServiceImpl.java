@@ -8,6 +8,7 @@ import com.staylog.staylog.domain.search.mapper.SearchMapper;
 import com.staylog.staylog.domain.search.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -28,8 +29,20 @@ public class SearchServiceImpl implements SearchService {
      * @Author danjae
      */
     @Override
+    @Cacheable(
+        value = "searchResults",
+        key = "T(String).join('_', " +
+              "#request.regionCodes != null ? #request.regionCodes : {}) + '_' + " +
+              "(#request.checkIn != null ? #request.checkIn.toString() : 'null') + '_' + " +
+              "(#request.checkOut != null ? #request.checkOut.toString() : 'null') + '_' + " +
+              "(#request.people != null ? #request.people : 0) + '_' + " +
+              "(#request.order != null ? #request.order : 'default') + '_' + " +
+              "(#request.lastAccomId != null ? #request.lastAccomId : 0)"
+    )
     public List<AccomListResponse> searchAccommodations(AccomListRequest request) {
         long startTime = System.currentTimeMillis();
+
+        log.info(" 캐시 MISS - DB에서 검색 수행");
 
         log.info("검색 조건 - 인원: {}, 체크인: {}, 체크아웃: {}, 지역: {}, 정렬: {}",
                 request.getPeople(), request.getCheckIn(), request.getCheckOut(),

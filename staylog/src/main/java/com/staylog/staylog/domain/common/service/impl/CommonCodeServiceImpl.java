@@ -6,6 +6,7 @@ import com.staylog.staylog.domain.common.mapper.CommonCodeMapper;
 import com.staylog.staylog.domain.common.service.CommonCodeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,7 +27,9 @@ public class CommonCodeServiceImpl implements CommonCodeService {
     }
 
     @Override
+    @Cacheable(value = "commonCodes", key = "'all'")
     public CommonCodeGroupResponse getAllCommonCodesGrouped() {
+        log.info(" 캐시 MISS - DB에서 공통코드 조회");
         log.info("모든 공통코드 그룹별 조회 시작");
 
         // 모든 공통코드 조회

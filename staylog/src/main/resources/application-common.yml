@@ -106,6 +106,19 @@ toss:
     fail-url: http://localhost:3000/payment/fail
 
 
+# =====================================
+# Spring Actuator Settings (캐시 통계)
+# =====================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,caches
+  metrics:
+    enable:
+      cache: true
+
+
 
 
 
