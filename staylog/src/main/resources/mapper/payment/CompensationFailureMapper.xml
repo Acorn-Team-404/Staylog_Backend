@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.staylog.staylog.domain.payment.mapper.CompensationFailureMapper">
+
+    <!-- ResultMap -->
+    <resultMap id="compensationFailureMap" type="com.staylog.staylog.domain.payment.entity.CompensationFailure">
+        <id property="id" column="ID"/>
+        <result property="type" column="TYPE"/>
+        <result property="bookingId" column="BOOKING_ID"/>
+        <result property="paymentId" column="PAYMENT_ID"/>
+        <result property="paymentKey" column="PAYMENT_KEY"/>
+        <result property="couponId" column="COUPON_ID"/>
+        <result property="reason" column="REASON"/>
+        <result property="errorMessage" column="ERROR_MESSAGE"/>
+        <result property="stackTrace" column="STACK_TRACE"/>
+        <result property="retryCount" column="RETRY_COUNT"/>
+        <result property="status" column="STATUS"/>
+        <result property="createdAt" column="CREATED_AT"/>
+        <result property="updatedAt" column="UPDATED_AT"/>
+        <result property="resolvedAt" column="RESOLVED_AT"/>
+        <result property="resolvedBy" column="RESOLVED_BY"/>
+        <result property="memo" column="MEMO"/>
+    </resultMap>
+
+    <!-- DLQ에 저장 -->
+    <insert id="insert" parameterType="com.staylog.staylog.domain.payment.entity.CompensationFailure">
+        <selectKey keyProperty="id" resultType="long" order="BEFORE">
+            SELECT COMPENSATION_FAILURE_SEQ.NEXTVAL FROM DUAL
+        </selectKey>
+
+        INSERT INTO COMPENSATION_FAILURE (
+            ID,
+            TYPE,
+            BOOKING_ID,
+            PAYMENT_ID,
+            PAYMENT_KEY,
+            COUPON_ID,
+            REASON,
+            ERROR_MESSAGE,
+            STACK_TRACE,
+            RETRY_COUNT,
+            STATUS,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            #{id},
+            #{type},
+            #{bookingId},
+            #{paymentId},
+            #{paymentKey},
+            #{couponId},
+            #{reason},
+            #{errorMessage},
+            #{stackTrace},
+            0,
+            'PENDING',
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+
+</mapper>

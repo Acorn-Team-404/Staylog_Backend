@@ -23,9 +23,9 @@ public class SearchServiceImpl implements SearchService {
     private final ImageAssembler imageAssembler;
 
     /**
-     * - 1단계: 예약 가능한 숙소만 필터링
-     * - 2단계: 필터링된 숙소의 기본 정보 + 객실 집계
-     * - 3단계: 인기순 정렬 시만 예약 수 조회
+     *
+     * - 1단계: 예약 가능한 숙소 필터링 + 숙소 정보 조회 (통합)
+     * - 2단계: 인기순 정렬 시만 예약 수 조회
      * @Author danjae
      */
     @Override
@@ -42,33 +42,19 @@ public class SearchServiceImpl implements SearchService {
     public List<AccomListResponse> searchAccommodations(AccomListRequest request) {
         long startTime = System.currentTimeMillis();
 
-        log.info(" 캐시 MISS - DB에서 검색 수행");
+        log.info("🔴 캐시 MISS - DB에서 검색 수행 (쿼리 최적화 버전)");
 
         log.info("검색 조건 - 인원: {}, 체크인: {}, 체크아웃: {}, 지역: {}, 정렬: {}",
                 request.getPeople(), request.getCheckIn(), request.getCheckOut(),
                 request.getRegionCodes(), request.getOrder());
 
-        // ========== 1단계: 예약 가능한 숙소 ID 추출 ==========
+        // ========== 1단계: 예약 가능 여부 체크 + 숙소 정보 조회 (통합) ==========
         long step1Start = System.currentTimeMillis();
-        List<Long> availableAccomIds = searchMapper.getAvailableAccomIds(request);
+        List<AccomListResponse> accommodationList = searchMapper.getAccomListOptimized(request);
         long step1Time = System.currentTimeMillis() - step1Start;
 
-        log.info("[1단계 완료] 예약 가능한 숙소 ID 추출 - 개수: {}, 소요시간: {}ms",
-                availableAccomIds.size(), step1Time);
-
-        // 예약 가능한 숙소가 없으면 빈 리스트 반환
-        if (availableAccomIds.isEmpty()) {
-            log.warn("예약 가능한 숙소가 없습니다.");
-            return Collections.emptyList();
-        }
-
-        // ========== 2단계: 숙소 기본 정보 + 객실 집계 ==========
-        long step2Start = System.currentTimeMillis();
-        List<AccomListResponse> accommodationList = searchMapper.getAccomListBasic(request, availableAccomIds);
-        long step2Time = System.currentTimeMillis() - step2Start;
-
-        log.info("[2단계 완료] 숙소 기본 정보 조회 - 개수: {}, 소요시간: {}ms",
-                accommodationList.size(), step2Time);
+        log.info("[1단계 완료] 숙소 조회 (예약가능+기본정보 통합) - 개수: {}, 소요시간: {}ms",
+                accommodationList.size(), step1Time);
 
         // 조회된 숙소가 없으면 빈 리스트 반환
         if (accommodationList.isEmpty()) {
@@ -76,12 +62,12 @@ public class SearchServiceImpl implements SearchService {
             return Collections.emptyList();
         }
 
-        // ========== 3단계: 예약 수 조회 (인기순 정렬 시만 실행) ==========
+        // ========== 2단계: 예약 수 조회 (인기순 정렬 시만 실행) ==========
         boolean isPopularSort = "popular".equals(request.getOrder());
-        long step3Time = 0;
+        long step2Time = 0;
 
         if (isPopularSort) {
-            long step3Start = System.currentTimeMillis();
+            long step2Start = System.currentTimeMillis();
 
             //  조회된 숙소 ID 리스트
             List<Long> accommodationIds = accommodationList.stream()
@@ -91,9 +77,9 @@ public class SearchServiceImpl implements SearchService {
             // 예약 수 조회
             List<Map<String, Object>> reservationCounts = searchMapper.getReservationCounts(accommodationIds);
 
-            log.debug("[3단계 디버그] 예약 수 조회 결과 개수: {}", reservationCounts.size());
+            log.debug("[2단계 디버그] 예약 수 조회 결과 개수: {}", reservationCounts.size());
             if (!reservationCounts.isEmpty()) {
-                log.debug("[3단계 디버그] 첫 번째 Map 키: {}", reservationCounts.get(0).keySet());
+                log.debug("[2단계 디버그] 첫 번째 Map 키: {}", reservationCounts.get(0).keySet());
             }
 
             // Map으로 변환 (accommodationId -> reservationCount)
@@ -131,17 +117,17 @@ public class SearchServiceImpl implements SearchService {
                 return Long.compare(a.getAccommodationId(), b.getAccommodationId());
             });
 
-            step3Time = System.currentTimeMillis() - step3Start;
-            log.info("[3단계 완료] 예약 수 조회 및 재정렬 - 소요시간: {}ms", step3Time);
+            step2Time = System.currentTimeMillis() - step2Start;
+            log.info("[2단계 완료] 예약 수 조회 및 재정렬 - 소요시간: {}ms", step2Time);
         } else {
-            log.info("[3단계 스킵] 인기순 정렬이 아니므로 예약 수 조회 생략");
+            log.info("[2단계 스킵] 인기순 정렬이 아니므로 예약 수 조회 생략");
         }
 
         // ========== 결과 로그 출력 ==========
         long totalTime = System.currentTimeMillis() - startTime;
-        log.info("========== 숙소 검색 완료 ==========");
-        log.info("총 소요시간: {}ms (1단계: {}ms, 2단계: {}ms, 3단계: {}ms)",
-                totalTime, step1Time, step2Time, step3Time);
+        log.info("========== 숙소 검색 완료  ==========");
+        log.info("총 소요시간: {}ms (1단계: {}ms, 2단계: {}ms)",
+                totalTime, step1Time, step2Time);
         log.info("최종 결과 개수: {}", accommodationList.size());
 
         // 개별 숙소 정보 로그

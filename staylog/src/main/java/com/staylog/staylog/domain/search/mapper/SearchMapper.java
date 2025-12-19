@@ -29,9 +29,15 @@ public interface SearchMapper {
     /**
      * 예약 수만 조회 (popular 인기순 정렬 시만 호출)
      * @accommodationIds getAccomListBasic에서 조회된 숙소 ID 리스트
-    
+
      */
     List<Map<String, Object>> getReservationCounts(@Param("accommodationIds") List<Long> accommodationIds);
 
+    /**
+     * 1단계 + 2단계 통합 쿼리
+     * 예약 가능 여부 체크 + 숙소 정보 조회를 한 번에 처리
+     * DB 왕복 횟수: 2회 → 1회 감소
+     */
+    List<AccomListResponse> getAccomListOptimized(AccomListRequest request);
 
 }

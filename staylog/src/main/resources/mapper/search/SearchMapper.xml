@@ -119,4 +119,74 @@
         GROUP BY R.ACCOMMODATION_ID
     </select>
 
+    <!-- ========== 최적화: 1단계 + 2단계 통합 ========== -->
+    <!-- 예약 가능 여부 체크 + 숙소 정보 조회를 한 번에 처리 -->
+    <select id="getAccomListOptimized" resultMap="AccomWithImagesMap">
+        SELECT * FROM (
+            SELECT
+                A.ACCOMMODATION_ID,
+                A.NAME AS ACCOMMODATION_NAME,
+                C.CODE_NAME AS REGION_NAME,
+                2 AS MIN_CAPACITY,
+                MAX(R.TOTAL_CAPACITY) AS MAX_CAPACITY,
+                SUM(R.TOTAL_CAPACITY) AS TOTAL_CAPACITY,
+                MIN(R.PRICE) AS BASE_PRICE,
+                0 AS RES_COUNT,
+                A.CREATED_AT,
+                ROW_NUMBER() OVER (
+                    <choose>
+                        <when test="order == 'lowPrice'">
+                            ORDER BY MIN(R.PRICE) ASC, A.ACCOMMODATION_ID ASC
+                        </when>
+                        <when test="order == 'highPrice'">
+                            ORDER BY MIN(R.PRICE) DESC, A.ACCOMMODATION_ID ASC
+                        </when>
+                        <when test="order == 'new'">
+                            ORDER BY A.CREATED_AT DESC, A.ACCOMMODATION_ID ASC
+                        </when>
+                        <when test="order == 'popular'">
+                            ORDER BY A.ACCOMMODATION_ID ASC
+                        </when>
+                        <otherwise>
+                            ORDER BY A.NAME ASC, A.ACCOMMODATION_ID ASC
+                        </otherwise>
+                    </choose>
+                ) AS RN
+            FROM ACCOMMODATION A
+            JOIN COMMON_CODE C ON A.REGION_CODE = C.CODE_ID AND C.USE_YN = 'Y'
+            JOIN ROOM R ON A.ACCOMMODATION_ID = R.ACCOMMODATION_ID AND R.DELETED_YN = 'N'
+            <where>
+                A.DELETED_YN = 'N'
+                <!-- 인원수 조건 -->
+                <if test="people != null">
+                    AND R.TOTAL_CAPACITY >= #{people}
+                </if>
+                <!-- 예약 가능 조건 (기존 1단계 로직 통합) -->
+                <if test="checkIn != null and checkOut != null">
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM RESERVATION X
+                        WHERE X.ROOM_ID = R.ROOM_ID
+                          AND X.STATUS IN ('CONFIRMED','PENDING')
+                          AND X.CHECK_IN <![CDATA[<]]> #{checkOut}
+                          AND X.CHECK_OUT > #{checkIn}
+                    )
+                </if>
+                <!-- 지역 필터 -->
+                <if test="regionCodes != null and !regionCodes.isEmpty()">
+                    AND A.REGION_CODE IN
+                    <foreach item="code" collection="regionCodes" open="(" separator="," close=")">
+                        #{code}
+                    </foreach>
+                </if>
+                <!-- 무한 스크롤 -->
+                <if test="lastAccomId != null">
+                    AND A.ACCOMMODATION_ID > #{lastAccomId}
+                </if>
+            </where>
+            GROUP BY A.ACCOMMODATION_ID, A.NAME, C.CODE_NAME, A.CREATED_AT
+        )
+        WHERE RN BETWEEN 1 AND 20
+    </select>
+
 </mapper>
