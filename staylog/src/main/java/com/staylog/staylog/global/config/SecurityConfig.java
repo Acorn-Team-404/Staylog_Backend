@@ -98,6 +98,9 @@ public class SecurityConfig {
                                 "/review/*"
                         ).permitAll()
 
+                        // 숙소 페이지 허용
+                        .requestMatchers("/v1/accommodations/*").permitAll()
+
                         // VIP 전용
                         .requestMatchers("/form/journal").hasAuthority("VIP")
 
