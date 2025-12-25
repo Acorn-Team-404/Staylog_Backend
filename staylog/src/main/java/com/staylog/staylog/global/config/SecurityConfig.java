@@ -100,6 +100,7 @@ public class SecurityConfig {
 
                         // 숙소 페이지 허용
                         .requestMatchers("/v1/accommodations/*").permitAll()
+                        .requestMatchers("/v1/room/*").permitAll()
 
                         // VIP 전용
                         .requestMatchers("/form/journal").hasAuthority("VIP")
